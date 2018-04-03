@@ -461,7 +461,7 @@ class Skew(Operation):
             return image.transform(image.size,
                                    Image.PERSPECTIVE,
                                    perspective_skew_coefficients_matrix,
-                                   resample=Image.BICUBIC)
+                                   resample=Image.BILINEAR)
 
         augmented_images = []
 
@@ -512,7 +512,7 @@ class RotateStandard(Operation):
             rotation = random_right
 
         def do(image):
-            return image.rotate(rotation, expand=self.expand, resample=Image.BICUBIC)
+            return image.rotate(rotation, expand=self.expand, resample=Image.BILINEAR)
 
         augmented_images = []
 
@@ -653,13 +653,13 @@ class RotateRange(Operation):
         elif left_or_right == 1:
             rotation = random_right
 
-        def do(image):
+        def do(image, mode):
             # Get size before we rotate
             x = image.size[0]
             y = image.size[1]
 
             # Rotate, while expanding the canvas size
-            image = image.rotate(rotation, expand=True, resample=Image.BICUBIC)
+            image = image.rotate(rotation, expand=True, resample=mode)
 
             # Get size after rotation, which includes the empty space
             X = image.size[0]
@@ -689,12 +689,12 @@ class RotateRange(Operation):
             image = image.crop((int(round(E)), int(round(A)), int(round(X - E)), int(round(Y - A))))
 
             # Return the image, re-sized to the size of the image passed originally
-            return image.resize((x, y), resample=Image.BICUBIC)
+            return image.resize((x, y), resample=mode)
 
         augmented_images = []
 
-        for image in images:
-            augmented_images.append(do(image))
+        augmented_images.append(do(images[0], Image.BILINEAR))
+        augmented_images.append(do(images[1], Image.NEAREST))
 
         return augmented_images
 
@@ -1109,11 +1109,11 @@ class Shear(Operation):
                 image = image.transform((int(round(width + shift_in_pixels)), height),
                                         Image.AFFINE,
                                         transform_matrix,
-                                        Image.BICUBIC)
+                                        Image.BILINEAR)
 
                 image = image.crop((abs(shift_in_pixels), 0, width, height))
 
-                return image.resize((width, height), resample=Image.BICUBIC)
+                return image.resize((width, height), resample=Image.BILINEAR)
 
             elif direction == "y":
                 shift_in_pixels = phi * width
@@ -1130,11 +1130,11 @@ class Shear(Operation):
                 image = image.transform((width, int(round(height + shift_in_pixels))),
                                         Image.AFFINE,
                                         transform_matrix,
-                                        Image.BICUBIC)
+                                        Image.BILINEAR)
 
                 image = image.crop((0, abs(shift_in_pixels), width, height))
 
-                return image.resize((width, height), resample=Image.BICUBIC)
+                return image.resize((width, height), resample=Image.BILINEAR)
 
         augmented_images = []
 
@@ -1187,7 +1187,7 @@ class Scale(Operation):
             new_h = int(h * self.scale_factor)
             new_w = int(w * self.scale_factor)
 
-            return image.resize((new_w, new_h), resample=Image.BICUBIC)
+            return image.resize((new_w, new_h), resample=Image.BILINEAR)
 
         augmented_images = []
 
@@ -1297,7 +1297,7 @@ class Distort(Operation):
             if i not in last_row and i not in last_column:
                 polygon_indices.append([i, i + 1, i + horizontal_tiles, i + 1 + horizontal_tiles])
 
-        def do(image):
+        def do(image, mode):
 
             for a, b, c, d in polygon_indices:
                 dx = random.randint(-self.magnitude, self.magnitude)
@@ -1331,12 +1331,12 @@ class Distort(Operation):
             for i in range(len(dimensions)):
                 generated_mesh.append([dimensions[i], polygons[i]])
 
-            return image.transform(image.size, Image.MESH, generated_mesh, resample=Image.BICUBIC)
+            return image.transform(image.size, Image.MESH, generated_mesh, resample=mode)
 
         augmented_images = []
 
-        for image in images:
-            augmented_images.append(do(image))
+        augmented_images.append(do(images[0], Image.BILINEAR))
+        augmented_images.append(do(images[1], Image.NEAREST))
 
         return augmented_images
 
@@ -1531,7 +1531,7 @@ class GaussianDistortion(Operation):
             for i in range(len(dimensions)):
                 generated_mesh.append([dimensions[i], polygons[i]])
 
-            return image.transform(image.size, Image.MESH, generated_mesh, resample=Image.BICUBIC)
+            return image.transform(image.size, Image.MESH, generated_mesh, resample=Image.BILINEAR)
 
         augmented_images = []
 
@@ -1579,12 +1579,12 @@ class Zoom(Operation):
         """
         factor = round(random.uniform(self.min_factor, self.max_factor), 2)
 
-        def do(image):
+        def do(image, mode):
             w, h = image.size
 
             image_zoomed = image.resize((int(round(image.size[0] * factor)),
                                          int(round(image.size[1] * factor))),
-                                         resample=Image.BICUBIC)
+                                         resample=mode)
             w_zoomed, h_zoomed = image_zoomed.size
 
             return image_zoomed.crop((floor((float(w_zoomed) / 2) - (float(w) / 2)),
@@ -1594,8 +1594,8 @@ class Zoom(Operation):
 
         augmented_images = []
 
-        for image in images:
-            augmented_images.append(do(image))
+        augmented_images.append(do(images[0], Image.BILINEAR))
+        augmented_images.append(do(images[1], Image.NEAREST))
 
         return augmented_images
 
@@ -1651,15 +1651,15 @@ class ZoomRandom(Operation):
         random_left_shift = random.randint(0, (w - w_new))  # Note: randint() is from uniform distribution.
         random_down_shift = random.randint(0, (h - h_new))
 
-        def do(image):
+        def do(image, mode):
             image = image.crop((random_left_shift, random_down_shift, w_new + random_left_shift, h_new + random_down_shift))
 
-            return image.resize((w, h), resample=Image.BICUBIC)
+            return image.resize((w, h), resample=mode)
 
         augmented_images = []
 
-        for image in images:
-            augmented_images.append(do(image))
+        augmented_images.append(do(images[0], Image.BILINEAR))
+        augmented_images.append(do(images[1], Image.NEAREST))
 
         return augmented_images
 
@@ -1859,7 +1859,7 @@ class ZoomGroundTruth(Operation):
             w, h = image.size
 
             # TODO: Join these two functions together so that we don't have this image_zoom variable lying around.
-            image_zoomed = image.resize((int(round(image.size[0] * factor)), int(round(image.size[1] * factor))), resample=Image.BICUBIC)
+            image_zoomed = image.resize((int(round(image.size[0] * factor)), int(round(image.size[1] * factor))), resample=Image.BILINEAR)
             w_zoomed, h_zoomed = image_zoomed.size
 
             return image_zoomed.crop((floor((float(w_zoomed) / 2) - (float(w) / 2)),
@@ -1868,7 +1868,6 @@ class ZoomGroundTruth(Operation):
                                       floor((float(h_zoomed) / 2) + (float(h) / 2))))
 
         augmented_images = []
-
         for image in images:
             augmented_images.append(do(image))
 
